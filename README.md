@@ -22,7 +22,7 @@ URLNet requires Python 2.7 and the following packages:
 Model Designs
 -------------
 
-![](exp3_MLP.jpg)
+![](img/URLNet.jpg)
 
 Sample Commands
 ---------------
@@ -35,9 +35,9 @@ URL text string following the template:
 **Example:**
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-+1 http://www.exampledomain.com/urlpath/...
++1  http://www.exampledomain.com/urlpath/...
 
--1 http://www.exampledomain.com/urlpath/...
+-1  http://www.exampledomain.com/urlpath/...
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The URL label is either +1 (Malicious) or -1 (Benign).
@@ -68,14 +68,12 @@ Else, the prediction is -1 (Benign).
 
 **Example:**
 ~~~~~~~~~~~~~~~~~~~~~~
+label   predict score
 
-label  predict score
+1   1       0.884
 
-1  1   0.884
-
--1 -1  0.359
+-1  -1      0.359
 ~~~~~~~~~~~~~~~~~~~~~~
-
 
 To obtain test metrics such as True Positive, False Positive, True Negative,
 False Negative, and the AUC curves, run the following command:
@@ -94,9 +92,9 @@ Parameters
 
 Training parameters include:
 
-| **Parameterâ€‹**       | **Description**                                                                                                                                                                                 | **Default**     |
+| **Parameter**       | **Description**                                                                                                                                                                                 | **Default**     |
 |---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------|
-| MAX_LENGTH_WORDS    | The maximum number of words in a URL. The URL is either truncated or padded with a $$<PADDING>$$ token to reach this length.                                                                    | 200             |
+| MAX_LENGTH_WORDS    | The maximum number of words in a URL. The URL is either truncated or padded with a `<PADDING>` token to reach this length.                                                                    | 200             |
 | MAX_LENGTH_CHARS    | The maximum number of characters in a URL. The URL is either truncted or padded with a `<PADDING>` character to reach this length.                                                              | 200             |
 | MAX_LENGTH_SUBWORDS | The maximum number of characters in each word in a URL. Each word is either truncated or padded with a `<PADDING>` character to reach this length.                                              | 20              |
 | MIN_WORD_FREQ       | Words that have frequency less than or equal to this parameter are considered as rare words, and represented as a single `<UNKNOWN>` token.                                                     | 1               |
@@ -116,13 +114,13 @@ Training parameters include:
 | EVAL_EVERY          | Evaluate the model on the validation set after this number of batches                                                                                                                           | 500             |
 | CHECKPOINT_EVERY    | Checkpoint the model after this number of batches. Only save the model checkpoint if the validation loss is improved.                                                                           | 500             |
 
-�
+ 
 
 Test parameters include:
 
 | **Parameter**       | **Description**                                                                                                                                                                                 | **Default**                          |
 |---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------|
-| MAX_LENGTH_WORDS    | The maximum number of words in a URL. The URL is either truncated or padded with a $$<PADDING>$$ token to reach this length.                                                                    | 200                                  |
+| MAX_LENGTH_WORDS    | The maximum number of words in a URL. The URL is either truncated or padded with a `<PADDING>` token to reach this length.                                                                    | 200                                  |
 | MAX_LENGTH_CHARS    | The maximum number of characters in a URL. The URL is either truncted or padded with a `<PADDING>` character to reach this length.                                                              | 200                                  |
 | MAX_LENGTH_SUBWORDS | The maximum number of characters in each word in a URL. Each word is either truncated or padded with a `<PADDING>` character to reach this length.                                              | 20                                   |
 | EMB_DIM             | Dimension size of word and character embedding.                                                                                                                                                 | 32                                   |
@@ -140,4 +138,5 @@ The test parameters such as `EMB_MODE` and `DELIMIT_MODE` have to be consistent
 with the trained model to get accurate test results.
 
 Refer to the file `run.sh` for example commands.
+
 
