@@ -1,4 +1,4 @@
-LNet**
+**URLNet**
 ==========
 
 Introduction
@@ -34,13 +34,14 @@ URL text string following the template:
 
 **Example:**
 
-`+1 http://www.exampledomain.com/urlpath/...`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++1 http://www.exampledomain.com/urlpath/...
 
-`-1 http://www.exampledomain.com/urlpath/...`
+-1 http://www.exampledomain.com/urlpath/...
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The URL label is either +1 (Malicious) or -1 (Benign).
 
-Â 
 
 The model can be trained by running the following command:
 
@@ -52,7 +53,6 @@ The training will save all the related word and character dictionaries into an
 output folder, and the model checkpoints are saved into `checkpoints/` folder.
 By default, maximum 5 checkpoints are stored in the folder.
 
-Â 
 
 The model can be tested by running the following command:
 
@@ -67,25 +67,27 @@ test dataset. If the score is more than 0.5, prediction label is +1 (Malicious).
 Else, the prediction is -1 (Benign).
 
 **Example:**
+~~~~~~~~~~~~~~~~~~~~~~
 
-`label  predict score`
+label  predict score
 
-`1  1   0.884`
+1  1   0.884
 
-`-1 -1  0.359`
+-1 -1  0.359
+~~~~~~~~~~~~~~~~~~~~~~
 
-Â 
 
 To obtain test metrics such as True Positive, False Positive, True Negative,
 False Negative, and the AUC curves, run the following command:
 
-`python auc.py --input_path <test_result_directory> --input_file
-<test_result_file>`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+python auc.py --input_path <test_result_directory> --input_file
+<test_result_file>
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The command will output the test metrics into a file with the same name as the
 `input_file` but with an `.auc` extension.
 
-Â 
 
 Parameters
 ----------
@@ -114,7 +116,7 @@ Training parameters include:
 | EVAL_EVERY          | Evaluate the model on the validation set after this number of batches                                                                                                                           | 500             |
 | CHECKPOINT_EVERY    | Checkpoint the model after this number of batches. Only save the model checkpoint if the validation loss is improved.                                                                           | 500             |
 
-Â 
+�
 
 Test parameters include:
 
