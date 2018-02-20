@@ -47,7 +47,6 @@ if FLAGS.MIN_WORD_FREQ > 0:
 x, word_reverse_dict = get_word_vocab(urls, FLAGS.MAX_LENGTH_WORDS) 
 word_x = get_words(x, word_reverse_dict, FLAGS.DELIMIT_MODE, urls)
 ngramed_id_x, ngrams_dict, worded_id_x, words_dict = ngram_id_x(word_x, FLAGS.MAX_LENGTH_SUBWORDS, high_freq_words)
-#ngramed_id_x, ngrams_dict, worded_id_x, words_dict = ngram_id_x(word_x, FLAGS.WORD_NGRAM_LEN, FLAGS.CHAR_NGRAM_LEN, FLAGS.MAX_LENGTH_SUBWORDS, 3, high_freq_words)  
 
 chars_dict = ngrams_dict
 chared_id_x = char_id_x(urls, chars_dict, FLAGS.MAX_LENGTH_CHARS)

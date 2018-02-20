@@ -10,7 +10,7 @@ for ((i=0; i <${#emb_modes[@]}; ++i))
     --DEV_PERCENTAGE 0.001 \
     --EMB_MODE ${emb_modes[$i]} --DELIMIT_MODE ${delimit_modes[$i]} \
     --EMB_DIM 32 --MIN_WORD_FREQ 1 \
-    --FILTER_SIZE 3,4,5,6 \
+    --FILTER_SIZES 3,4,5,6 \
     --NB_EPOCHS ${nb_epoch} --BATCH_SIZE 1048 --PRINT_EVERY 50 --EVAL_EVERY 500 --CHECKPOINT_EVERY 500 \
     --OUTPUT_DIR runs/${train_size}_emb${emb_modes[$i]}_dlm${delimit_modes[$i]}_32dim_minwf1_1conv3456_${nb_epoch}ep/ 
 

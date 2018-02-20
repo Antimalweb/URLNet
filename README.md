@@ -46,7 +46,7 @@ The URL label is either +1 (Malicious) or -1 (Benign).
 The model can be trained by running the following command:
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-python train.py --FILE_DIR <data_file_directory> --EMB_MODE <embedding_mode> --EMB_DIM <nb_of_embedding_dimensions> --DELIMIT_MODE <url_delimit_mode> --FILTER_SIZE 3,4,5,6 <convolutional_filter_sizes> --NB_EPOCH <nb_of_training_epochs> --BATCH_SIZE <nb_of_urls_per_batch> --OUTPUT_DIR <model_output_folder_directory>
+python train.py --FILE_DIR <data_file_directory> --EMB_MODE <embedding_mode> --EMB_DIM <nb_of_embedding_dimensions> --DELIMIT_MODE <url_delimit_mode> --FILTER_SIZES <filter_sizes_separated_by_comma> <convolutional_filter_sizes> --NB_EPOCH <nb_of_training_epochs> --BATCH_SIZE <nb_of_urls_per_batch> --OUTPUT_DIR <model_output_folder_directory>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The training will save all the related word and character dictionaries into an
