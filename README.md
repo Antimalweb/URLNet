@@ -4,6 +4,9 @@
 Introduction
 ------------
 
+This is an implementation of URLNet - Learning a URL Representation with Deep Learning for Malicious URL Detection
+https://arxiv.org/abs/1802.03162
+
 URLNet is a convolutional neural network (CNN) based model used to detect
 malicious URLs. The model exploits features of URL text string at both character
 and word levels.
