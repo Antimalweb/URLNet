@@ -139,4 +139,8 @@ with the trained model to get accurate test results.
 
 Refer to the file `run.sh` for example commands.
 
+Acknowledgement
+---------------
+
+We are very grateful to our collaborators VirusTotal, for providing us access to their data, without which this research would not have been possible. 
 
