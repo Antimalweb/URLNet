@@ -14,7 +14,7 @@ frequence = 0.05
 with open(args.input_path + args.input_file) as f:
     data = f.readlines()
 out_file = args.input_file.split(".")[0] + '.auc'
-f =  open(args.input_path + out_file, 'w', 0)
+f =  open(args.input_path + out_file, 'w')
 
 total = 0.
 negative = 0.

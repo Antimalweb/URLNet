@@ -1,55 +1,96 @@
 import re 
 import time 
+import datetime
 import os
+import pdb 
 import pickle
+import argparse 
 import numpy as np 
+from tqdm import tqdm
 from bisect import bisect_left  
 import tensorflow as tf 
 from tensorflow.contrib import learn 
 from tflearn.data_utils import to_categorical, pad_sequences 
 from TextCNN import * 
-from utils import * 
+from utils import *  
 
-tf.flags.DEFINE_integer("MAX_LENGTH_WORDS", 200, "Max length of url in words") 
-tf.flags.DEFINE_integer("MAX_LENGTH_CHARS", 200, "Max length of url in chars") 
-tf.flags.DEFINE_integer("MAX_LENGTH_SUBWORDS",20, "Max length of word in ngrams") 
-tf.flags.DEFINE_integer("MIN_WORD_FREQ", 1, "Minimum frequency of word to build vocabulary")  
-tf.flags.DEFINE_integer("EMB_DIM", 32, "embedding dimension size") 
-tf.flags.DEFINE_integer("NB_EPOCHS",5, "number of training epochs") 
-tf.flags.DEFINE_integer("BATCH_SIZE", 128, "Size of a training batch") 
-tf.flags.DEFINE_float("DEV_PERCENTAGE", 0.001, "portion of training used for dev") 
-tf.flags.DEFINE_string("FILE_DIR","train_10000.txt", "directory of the training data") 
-tf.flags.DEFINE_string("OUTPUT_DIR", "runs/10000/", "directory o the output model")  
-tf.flags.DEFINE_integer("PRINT_EVERY", 50, "print training result every this number of steps") 
-tf.flags.DEFINE_integer("EVAL_EVERY", 500, "evaluate the model every this number of steps") 
-tf.flags.DEFINE_integer("CHECKPOINT_EVERY", 500, "Save a model every this number of steps") 
-tf.flags.DEFINE_float("L2_REG_LAMBDA", 0.0, "l2 lambda for regularization") 
-tf.flags.DEFINE_string("FILTER_SIZES", "3,4,5,6", "filter sizes of the convolution layer")
-tf.flags.DEFINE_float("LR", 0.001, "learning rate of the optimizer") 
-tf.flags.DEFINE_integer("EMB_MODE", 1, "1: charCNN, 2: wordCNN, 3: char + wordCNN, 4: char-level wordCNN, 5: char + char-level wordCNN")  
-tf.flags.DEFINE_integer("DELIMIT_MODE", 1, "0: delimit by special chars, 1: delimit by special chars + each char as a word")
+parser = argparse.ArgumentParser(description="Train URLNet model") 
 
-FLAGS = tf.flags.FLAGS
-FLAGS._parse_flags() 
-print("\nParameters:") 
-for attr, value in FLAGS.__flags.items(): 
-    print("{}={}".format(attr, value))
-print("") 
+# data args 
+default_max_len_words = 200
+parser.add_argument('--data.max_len_words', type=int, default=default_max_len_words, metavar="MLW",
+  help="maximum length of url in words (default: {})".format(default_max_len_words))
+default_max_len_chars = 200
+parser.add_argument('--data.max_len_chars', type=int, default=default_max_len_chars, metavar="MLC",
+  help="maximum length of url in characters (default: {})".format(default_max_len_chars))
+default_max_len_subwords = 20 
+parser.add_argument('--data.max_len_subwords', type=int, default=default_max_len_subwords, metavar="MLSW",
+  help="maxium length of word in subwords/ characters (default: {})".format(default_max_len_subwords))
+default_min_word_freq = 1
+parser.add_argument('--data.min_word_freq', type=int, default=default_min_word_freq, metavar="MWF",
+  help="minimum frequency of word in training population to build vocabulary (default: {})".format(default_min_word_freq))
+default_dev_pct = 0.001
+parser.add_argument('--data.dev_pct', type=float, default=default_dev_pct, metavar="DEVPCT",
+  help="percentage of training set used for dev (default: {})".format(default_dev_pct))
+parser.add_argument('--data.data_dir', type=str, default='train_10000.txt', metavar="DATADIR",
+  help="location of data file")
+default_delimit_mode = 1 
+parser.add_argument("--data.delimit_mode", type=int, default=default_delimit_mode, metavar="DLMODE",
+  help="0: delimit by special chars, 1: delimit by special chars + each char as a word (default: {})".format(default_delimit_mode))
 
-urls, labels = read_data(FLAGS.FILE_DIR) 
+# model args 
+default_emb_dim = 32
+parser.add_argument('--model.emb_dim', type=int, default=default_emb_dim, metavar="EMBDIM",
+  help="embedding dimension size (default: {})".format(default_emb_dim))
+default_filter_sizes = "3,4,5,6"
+parser.add_argument('--model.filter_sizes', type=str, default=default_filter_sizes, metavar="FILTERSIZES",
+  help="filter sizes of the convolution layer (default: {})".format(default_filter_sizes))
+default_emb_mode = 1 
+parser.add_argument('--model.emb_mode', type=int, default=default_emb_mode, metavar="EMBMODE",
+  help="1: charCNN, 2: wordCNN, 3: char + wordCNN, 4: char-level wordCNN, 5: char + char-level wordCNN (default: {})".format(default_emb_mode))
+
+# train args 
+default_nb_epochs = 5
+parser.add_argument('--train.nb_epochs', type=int, default=default_nb_epochs, metavar="NEPOCHS",
+  help="number of training epochs (default: {})".format(default_nb_epochs))
+default_batch_size = 128
+parser.add_argument('--train.batch_size', type=int, default=default_batch_size, metavar="BATCHSIZE",
+  help="Size of each training batch (default: {})".format(default_batch_size))
+parser.add_argument('--train.l2_reg_lambda', type=float, default=0.0, metavar="L2LREGLAMBDA",
+  help="l2 lambda for regularization (default: 0.0)")
+default_lr = 0.001
+parser.add_argument('--train.lr', type=float, default=default_lr, metavar="LR",
+  help="learning rate for optimizer (default: {})".format(default_lr))
+
+# log args 
+parser.add_argument('--log.output_dir', type=str, default="runs/10000/", metavar="OUTPUTDIR",
+  help="directory of the output model")
+parser.add_argument('--log.print_every', type=int, default=50, metavar="PRINTEVERY",
+  help="print training result every this number of steps (default: 50)")
+parser.add_argument('--log.eval_every', type=int, default=500, metavar="EVALEVERY",
+  help="evaluate the model every this number of steps (default: 500)")
+parser.add_argument('--log.checkpoint_every', type=int, default=500, metavar="CHECKPOINTEVERY",
+  help="save a model every this number of steps (default: 500)")
+
+FLAGS = vars(parser.parse_args())
+
+for key, val in FLAGS.items():
+  print("{}={}".format(key, val))
+
+urls, labels = read_data(FLAGS["data.data_dir"]) 
 
 high_freq_words = None
-if FLAGS.MIN_WORD_FREQ > 0: 
-    x1, word_reverse_dict = get_word_vocab(urls, FLAGS.MAX_LENGTH_WORDS, FLAGS.MIN_WORD_FREQ) 
+if FLAGS["data.min_word_freq"] > 0: 
+    x1, word_reverse_dict = get_word_vocab(urls, FLAGS["data.max_len_words"], FLAGS["data.min_word_freq"]) 
     high_freq_words = sorted(list(word_reverse_dict.values()))
-    print("Number of words with freq >={}: {}".format(FLAGS.MIN_WORD_FREQ, len(high_freq_words)))  
+    print("Number of words with freq >={}: {}".format(FLAGS["data.min_word_freq"], len(high_freq_words)))  
 
-x, word_reverse_dict = get_word_vocab(urls, FLAGS.MAX_LENGTH_WORDS) 
-word_x = get_words(x, word_reverse_dict, FLAGS.DELIMIT_MODE, urls)
-ngramed_id_x, ngrams_dict, worded_id_x, words_dict = ngram_id_x(word_x, FLAGS.MAX_LENGTH_SUBWORDS, high_freq_words)
+x, word_reverse_dict = get_word_vocab(urls, FLAGS["data.max_len_words"]) 
+word_x = get_words(x, word_reverse_dict, FLAGS["data.delimit_mode"], urls)
+ngramed_id_x, ngrams_dict, worded_id_x, words_dict = ngram_id_x(word_x, FLAGS["data.max_len_subwords"], high_freq_words)
 
 chars_dict = ngrams_dict
-chared_id_x = char_id_x(urls, chars_dict, FLAGS.MAX_LENGTH_CHARS)
+chared_id_x = char_id_x(urls, chars_dict, FLAGS["data.max_len_chars"])
 
 pos_x = []
 neg_x = []
@@ -63,7 +104,7 @@ print("Overall Mal/Ben split: {}/{}".format(len(pos_x), len(neg_x)))
 pos_x = np.array(pos_x) 
 neg_x = np.array(neg_x) 
 
-x_train, y_train, x_test, y_test = prep_train_test(pos_x, neg_x, FLAGS.DEV_PERCENTAGE)
+x_train, y_train, x_test, y_test = prep_train_test(pos_x, neg_x, FLAGS["data.dev_pct"])
 
 x_train_char = get_ngramed_id_x(x_train, ngramed_id_x) 
 x_test_char = get_ngramed_id_x(x_test, ngramed_id_x) 
@@ -129,31 +170,40 @@ with tf.Graph().as_default():
                 char_ngram_vocab_size = len(ngrams_dict)+1, 
                 word_ngram_vocab_size = len(words_dict)+1,
                 char_vocab_size = len(chars_dict)+1,
-                embedding_size=FLAGS.EMB_DIM,
-                word_seq_len=FLAGS.MAX_LENGTH_WORDS,
-                char_seq_len=FLAGS.MAX_LENGTH_CHARS,
-                l2_reg_lambda=FLAGS.L2_REG_LAMBDA,
-                mode=FLAGS.EMB_MODE,
-                filter_sizes=list(map(int, FLAGS.FILTER_SIZES.split(","))))
+                embedding_size=FLAGS["model.emb_dim"],
+                word_seq_len=FLAGS["data.max_len_words"],
+                char_seq_len=FLAGS["data.max_len_chars"],
+                l2_reg_lambda=FLAGS["train.l2_reg_lambda"],
+                mode=FLAGS["model.emb_mode"],
+                filter_sizes=list(map(int, FLAGS["model.filter_sizes"].split(","))))
 
         global_step = tf.Variable(0, name="global_step", trainable=False) 
-        optimizer = tf.train.AdamOptimizer(FLAGS.LR) 
+        optimizer = tf.train.AdamOptimizer(FLAGS["train.lr"]) 
         grads_and_vars = optimizer.compute_gradients(cnn.loss)
         train_op = optimizer.apply_gradients(grads_and_vars, global_step = global_step) 
         
-        print("Writing to {}\n".format(FLAGS.OUTPUT_DIR))
-        if not os.path.exists(FLAGS.OUTPUT_DIR): 
-            os.makedirs(FLAGS.OUTPUT_DIR)
+        print("Writing to {}\n".format(FLAGS["log.output_dir"]))
+        if not os.path.exists(FLAGS["log.output_dir"]): 
+            os.makedirs(FLAGS["log.output_dir"])
         
         # Save dictionary files 
-        ngrams_dict_dir = FLAGS.OUTPUT_DIR + "ngrams_dict.p"
+        ngrams_dict_dir = FLAGS["log.output_dir"] + "subwords_dict.p"
         pickle.dump(ngrams_dict, open(ngrams_dict_dir,"wb"))  
-        words_dict_dir = FLAGS.OUTPUT_DIR + "words_dict.p"
+        words_dict_dir = FLAGS["log.output_dir"] + "words_dict.p"
         pickle.dump(words_dict, open(words_dict_dir, "wb"))
-        chars_dict_dir = FLAGS.OUTPUT_DIR + "chars_dict.p"
+        chars_dict_dir = FLAGS["log.output_dir"] + "chars_dict.p"
         pickle.dump(chars_dict, open(chars_dict_dir, "wb"))
+        
+        # Save training and validation logs 
+        train_log_dir = FLAGS["log.output_dir"] + "train_logs.csv"
+        with open(train_log_dir, "w") as f:
+          f.write("step,time,loss,acc\n") 
+        val_log_dir = FLAGS["log.output_dir"] + "val_logs.csv"
+        with open(val_log_dir, "w")  as f:
+          f.write("step,time,loss,acc\n")
 
-        checkpoint_dir = FLAGS.OUTPUT_DIR + "checkpoints/" 
+        # Save model checkpoints 
+        checkpoint_dir = FLAGS["log.output_dir"] + "checkpoints/" 
         if not os.path.exists(checkpoint_dir): 
             os.makedirs(checkpoint_dir) 
         checkpoint_prefix = checkpoint_dir + "model"
@@ -161,72 +211,79 @@ with tf.Graph().as_default():
         
         sess.run(tf.global_variables_initializer())
 
-        if FLAGS.EMB_MODE == 1: 
+        if FLAGS["model.emb_mode"] == 1: 
             batch_data = list(zip(x_train_char_seq, y_train))
-        elif FLAGS.EMB_MODE == 2: 
+        elif FLAGS["model.emb_mode"] == 2: 
             batch_data = list(zip(x_train_word, y_train))
-        elif FLAGS.EMB_MODE == 3: 
+        elif FLAGS["model.emb_mode"] == 3: 
             batch_data = list(zip(x_train_char_seq, x_train_word, y_train))
-        elif FLAGS.EMB_MODE == 4:
+        elif FLAGS["model.emb_mode"] == 4:
             batch_data = list(zip(x_train_char, x_train_word, y_train))
-        elif FLAGS.EMB_MODE == 5: 
+        elif FLAGS["model.emb_mode"] == 5: 
             batch_data = list(zip(x_train_char, x_train_word, x_train_char_seq, y_train))
-        batches = batch_iter(batch_data, FLAGS.BATCH_SIZE, FLAGS.NB_EPOCHS)
+        batches = batch_iter(batch_data, FLAGS["train.batch_size"], FLAGS["train.nb_epochs"])
         
         x_test = []
-        if FLAGS.EMB_MODE == 1 or FLAGS.EMB_MODE == 3 or FLAGS.EMB_MODE == 5: 
-            x_test_char_seq = pad_seq_in_word(x_test_char_seq, FLAGS.MAX_LENGTH_CHARS) 
+        if FLAGS["model.emb_mode"] in [1,3, 5]: 
+            x_test_char_seq = pad_seq_in_word(x_test_char_seq, FLAGS["data.max_len_chars"]) 
             x_test.append(x_test_char_seq)
-        if FLAGS.EMB_MODE == 2 or FLAGS.EMB_MODE == 3 or FLAGS.EMB_MODE == 4 or FLAGS.EMB_MODE == 5: 
-            x_test_word = pad_seq_in_word(x_test_word, FLAGS.MAX_LENGTH_WORDS) 
+        if FLAGS["model.emb_mode"] in [2, 3, 4, 5]: 
+            x_test_word = pad_seq_in_word(x_test_word, FLAGS["data.max_len_words"]) 
             x_test.append(x_test_word)
-        if FLAGS.EMB_MODE == 4 or FLAGS.EMB_MODE == 5: 
-            x_test_char, x_test_char_pad_idx = pad_seq(x_test_char, FLAGS.MAX_LENGTH_WORDS, FLAGS.MAX_LENGTH_SUBWORDS, FLAGS.EMB_DIM)
+        if FLAGS["model.emb_mode"] in [4, 5]: 
+            x_test_char, x_test_char_pad_idx = pad_seq(x_test_char, FLAGS["data.max_len_words"], FLAGS["data.max_len_subwords"], FLAGS["model.emb_dim"])
             x_test.extend([x_test_char, x_test_char_pad_idx])
 
         min_dev_loss = float('Inf') 
-        nb_batches_per_epoch = int(len(batch_data)/FLAGS.BATCH_SIZE)
-        if len(batch_data)%FLAGS.BATCH_SIZE != 0: 
+        dev_loss = float('Inf')
+        dev_acc = 0.0 
+        nb_batches_per_epoch = int(len(batch_data)/FLAGS["train.batch_size"])
+        if len(batch_data)%FLAGS["train.batch_size"] != 0: 
             nb_batches_per_epoch += 1
-        nb_batches = int(nb_batches_per_epoch * FLAGS.NB_EPOCHS)
+        nb_batches = int(nb_batches_per_epoch * FLAGS["train.nb_epochs"])
         print("Number of baches in total: {}".format(nb_batches))
         print("Number of batches per epoch: {}".format(nb_batches_per_epoch))
-        for idx, batch in enumerate(batches): 
-            if FLAGS.EMB_MODE == 1: 
+        
+        it = tqdm(range(nb_batches), desc="emb_mode {} delimit_mode {} train_size {}".format(FLAGS["model.emb_mode"], FLAGS["data.delimit_mode"], x_train.shape[0]), ncols=0)
+        for idx in it:
+            batch = next(batches)
+            if FLAGS["model.emb_mode"] == 1: 
                 x_char_seq, y_batch = zip(*batch) 
-            elif FLAGS.EMB_MODE == 2: 
+            elif FLAGS["model.emb_mode"] == 2: 
                 x_word, y_batch = zip(*batch) 
-            elif FLAGS.EMB_MODE == 3: 
+            elif FLAGS["model.emb_mode"] == 3: 
                 x_char_seq, x_word, y_batch = zip(*batch) 
-            elif FLAGS.EMB_MODE == 4: 
+            elif FLAGS["model.emb_mode"] == 4: 
                 x_char, x_word, y_batch = zip(*batch)
-            elif FLAGS.EMB_MODE == 5: 
+            elif FLAGS["model.emb_mode"] == 5: 
                 x_char, x_word, x_char_seq, y_batch = zip(*batch)            
 
             x_batch = []    
-            if FLAGS.EMB_MODE == 1 or FLAGS.EMB_MODE == 3 or FLAGS.EMB_MODE == 5: 
-                x_char_seq = pad_seq_in_word(x_char_seq, FLAGS.MAX_LENGTH_CHARS) 
+            if FLAGS["model.emb_mode"] in [1, 3, 5]:  
+                x_char_seq = pad_seq_in_word(x_char_seq, FLAGS["data.max_len_chars"]) 
                 x_batch.append(x_char_seq)
-            if FLAGS.EMB_MODE == 2 or FLAGS.EMB_MODE == 3 or FLAGS.EMB_MODE == 4 or FLAGS.EMB_MODE == 5: 
-                x_word = pad_seq_in_word(x_word, FLAGS.MAX_LENGTH_WORDS) 
+            if FLAGS["model.emb_mode"] in [2, 3, 4, 5]:
+                x_word = pad_seq_in_word(x_word, FLAGS["data.max_len_words"]) 
                 x_batch.append(x_word)
-            if FLAGS.EMB_MODE == 4 or FLAGS.EMB_MODE == 5: 
-                x_char, x_char_pad_idx = pad_seq(x_char, FLAGS.MAX_LENGTH_WORDS, FLAGS.MAX_LENGTH_SUBWORDS, FLAGS.EMB_DIM)
+            if FLAGS["model.emb_mode"] in [4, 5]:
+                x_char, x_char_pad_idx = pad_seq(x_char, FLAGS["data.max_len_words"], FLAGS["data.max_len_subwords"], FLAGS["model.emb_dim"])
                 x_batch.extend([x_char, x_char_pad_idx])
-            step, loss, acc = train_dev_step(x_batch, y_batch, emb_mode=FLAGS.EMB_MODE, is_train=True)                      
+            step, loss, acc = train_dev_step(x_batch, y_batch, emb_mode=FLAGS["model.emb_mode"], is_train=True)                      
 
-            if step % FLAGS.PRINT_EVERY == 0: 
-                print("step {}, loss {}, acc {}".format(step, loss, acc)) 
-            if step % FLAGS.EVAL_EVERY == 0: 
-                print("\nEvaluation") 
-                step, dev_loss, dev_acc = train_dev_step(x_test, y_test, emb_mode=FLAGS.EMB_MODE, is_train=False) 
-                print("step {}, loss {}, acc {}".format(step, dev_loss, dev_acc))
-                if step % FLAGS.CHECKPOINT_EVERY == 0 or idx == (nb_batches-1): 
+            if step % FLAGS["log.print_every"] == 0: 
+                with open(train_log_dir, "a") as f:
+                  f.write("{:d},{:s},{:e},{:e}\n".format(step, datetime.datetime.now().isoformat(), loss, acc)) 
+                it.set_postfix(
+                  trn_loss='{:.3e}'.format(loss),
+                  trn_acc='{:.3e}'.format(acc),
+                  dev_loss='{:.3e}'.format(dev_loss),
+                  dev_acc='{:.3e}'.format(dev_acc),
+                  min_dev_loss='{:.3e}'.format(min_dev_loss))
+            if step % FLAGS["log.eval_every"] == 0 or idx == (nb_batches-1): 
+                step, dev_loss, dev_acc = train_dev_step(x_test, y_test, emb_mode=FLAGS["model.emb_mode"], is_train=False) 
+                with open(val_log_dir, "a") as f: 
+                  f.write("{:d},{:s},{:e},{:e}\n".format(step, datetime.datetime.now().isoformat(), dev_loss, dev_acc))
+                if step % FLAGS["log.checkpoint_every"] == 0 or idx == (nb_batches-1): 
                     if dev_loss < min_dev_loss: 
                         path = saver.save(sess, checkpoint_prefix, global_step = step) 
-                        print("Dev loss improved: {} -> {}".format(min_dev_loss, dev_loss))
-                        print("Saved model checkpoint to {}\n".format(path))
-                        min_dev_loss = dev_loss 
-                    else: 
-                        print("Dev loss did not improve: {} -> {}".format(min_dev_loss, dev_loss))
-            
+                        min_dev_loss = dev_loss     
