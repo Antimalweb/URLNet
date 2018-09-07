@@ -160,6 +160,52 @@ def train_dev_step(x, y, emb_mode, is_train=True):
         step, loss, acc = sess.run([global_step, cnn.loss, cnn.accuracy], feed_dict)
     return step, loss, acc
 
+def make_batches(x_train_char_seq, x_train_word, x_train_char, y_train, batch_size, nb_epochs, shuffle=False):
+    if FLAGS["model.emb_mode"] == 1:  
+        batch_data = list(zip(x_train_char_seq, y_train))
+    elif FLAGS["model.emb_mode"] == 2:  
+        batch_data = list(zip(x_train_word, y_train))
+    elif FLAGS["model.emb_mode"] == 3:  
+        batch_data = list(zip(x_train_char_seq, x_train_word, y_train))
+    elif FLAGS["model.emb_mode"] == 4:
+         batch_data = list(zip(x_train_char, x_train_word, y_train))
+    elif FLAGS["model.emb_mode"] == 5:  
+        batch_data = list(zip(x_train_char, x_train_word, x_train_char_seq, y_train))
+    batches = batch_iter(batch_data, batch_size, nb_epochs, shuffle)
+
+    if nb_epochs > 1: 
+        nb_batches_per_epoch = int(len(batch_data)/batch_size)
+        if len(batch_data)%batch_size != 0:
+            nb_batches_per_epoch += 1
+        nb_batches = int(nb_batches_per_epoch * nb_epochs)
+        return batches, nb_batches_per_epoch, nb_batches
+    else:
+        return batches 
+
+def prep_batches(batch):
+    if FLAGS["model.emb_mode"] == 1:
+        x_char_seq, y_batch = zip(*batch)
+    elif FLAGS["model.emb_mode"] == 2:
+        x_word, y_batch = zip(*batch)
+    elif FLAGS["model.emb_mode"] == 3:
+        x_char_seq, x_word, y_batch = zip(*batch)
+    elif FLAGS["model.emb_mode"] == 4:
+        x_char, x_word, y_batch = zip(*batch)
+    elif FLAGS["model.emb_mode"] == 5:
+        x_char, x_word, x_char_seq, y_batch = zip(*batch)
+
+    x_batch = []
+    if FLAGS["model.emb_mode"] in [1, 3, 5]:
+        x_char_seq = pad_seq_in_word(x_char_seq, FLAGS["data.max_len_chars"])
+        x_batch.append(x_char_seq)
+    if FLAGS["model.emb_mode"] in [2, 3, 4, 5]:
+        x_word = pad_seq_in_word(x_word, FLAGS["data.max_len_words"])
+        x_batch.append(x_word)
+    if FLAGS["model.emb_mode"] in [4, 5]:
+        x_char, x_char_pad_idx = pad_seq(x_char, FLAGS["data.max_len_words"], FLAGS["data.max_len_subwords"], FLAGS["model.emb_dim"])
+        x_batch.extend([x_char, x_char_pad_idx])
+    return x_batch, y_batch
+
 with tf.Graph().as_default(): 
     session_conf = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False) 
     session_conf.gpu_options.allow_growth=True 
@@ -211,65 +257,19 @@ with tf.Graph().as_default():
         
         sess.run(tf.global_variables_initializer())
 
-        if FLAGS["model.emb_mode"] == 1: 
-            batch_data = list(zip(x_train_char_seq, y_train))
-        elif FLAGS["model.emb_mode"] == 2: 
-            batch_data = list(zip(x_train_word, y_train))
-        elif FLAGS["model.emb_mode"] == 3: 
-            batch_data = list(zip(x_train_char_seq, x_train_word, y_train))
-        elif FLAGS["model.emb_mode"] == 4:
-            batch_data = list(zip(x_train_char, x_train_word, y_train))
-        elif FLAGS["model.emb_mode"] == 5: 
-            batch_data = list(zip(x_train_char, x_train_word, x_train_char_seq, y_train))
-        batches = batch_iter(batch_data, FLAGS["train.batch_size"], FLAGS["train.nb_epochs"])
+        train_batches, nb_batches_per_epoch, nb_batches = make_batches(x_train_char_seq, x_train_word, x_train_char, y_train, FLAGS["train.batch_size"], FLAGS['train.nb_epochs'], True)
         
-        x_test = []
-        if FLAGS["model.emb_mode"] in [1,3, 5]: 
-            x_test_char_seq = pad_seq_in_word(x_test_char_seq, FLAGS["data.max_len_chars"]) 
-            x_test.append(x_test_char_seq)
-        if FLAGS["model.emb_mode"] in [2, 3, 4, 5]: 
-            x_test_word = pad_seq_in_word(x_test_word, FLAGS["data.max_len_words"]) 
-            x_test.append(x_test_word)
-        if FLAGS["model.emb_mode"] in [4, 5]: 
-            x_test_char, x_test_char_pad_idx = pad_seq(x_test_char, FLAGS["data.max_len_words"], FLAGS["data.max_len_subwords"], FLAGS["model.emb_dim"])
-            x_test.extend([x_test_char, x_test_char_pad_idx])
-
         min_dev_loss = float('Inf') 
         dev_loss = float('Inf')
         dev_acc = 0.0 
-        nb_batches_per_epoch = int(len(batch_data)/FLAGS["train.batch_size"])
-        if len(batch_data)%FLAGS["train.batch_size"] != 0: 
-            nb_batches_per_epoch += 1
-        nb_batches = int(nb_batches_per_epoch * FLAGS["train.nb_epochs"])
         print("Number of baches in total: {}".format(nb_batches))
         print("Number of batches per epoch: {}".format(nb_batches_per_epoch))
         
         it = tqdm(range(nb_batches), desc="emb_mode {} delimit_mode {} train_size {}".format(FLAGS["model.emb_mode"], FLAGS["data.delimit_mode"], x_train.shape[0]), ncols=0)
         for idx in it:
-            batch = next(batches)
-            if FLAGS["model.emb_mode"] == 1: 
-                x_char_seq, y_batch = zip(*batch) 
-            elif FLAGS["model.emb_mode"] == 2: 
-                x_word, y_batch = zip(*batch) 
-            elif FLAGS["model.emb_mode"] == 3: 
-                x_char_seq, x_word, y_batch = zip(*batch) 
-            elif FLAGS["model.emb_mode"] == 4: 
-                x_char, x_word, y_batch = zip(*batch)
-            elif FLAGS["model.emb_mode"] == 5: 
-                x_char, x_word, x_char_seq, y_batch = zip(*batch)            
-
-            x_batch = []    
-            if FLAGS["model.emb_mode"] in [1, 3, 5]:  
-                x_char_seq = pad_seq_in_word(x_char_seq, FLAGS["data.max_len_chars"]) 
-                x_batch.append(x_char_seq)
-            if FLAGS["model.emb_mode"] in [2, 3, 4, 5]:
-                x_word = pad_seq_in_word(x_word, FLAGS["data.max_len_words"]) 
-                x_batch.append(x_word)
-            if FLAGS["model.emb_mode"] in [4, 5]:
-                x_char, x_char_pad_idx = pad_seq(x_char, FLAGS["data.max_len_words"], FLAGS["data.max_len_subwords"], FLAGS["model.emb_dim"])
-                x_batch.extend([x_char, x_char_pad_idx])
+            batch = next(train_batches)
+            x_batch, y_batch = prep_batches(batch) 
             step, loss, acc = train_dev_step(x_batch, y_batch, emb_mode=FLAGS["model.emb_mode"], is_train=True)                      
-
             if step % FLAGS["log.print_every"] == 0: 
                 with open(train_log_dir, "a") as f:
                   f.write("{:d},{:s},{:e},{:e}\n".format(step, datetime.datetime.now().isoformat(), loss, acc)) 
@@ -280,7 +280,19 @@ with tf.Graph().as_default():
                   dev_acc='{:.3e}'.format(dev_acc),
                   min_dev_loss='{:.3e}'.format(min_dev_loss))
             if step % FLAGS["log.eval_every"] == 0 or idx == (nb_batches-1): 
-                step, dev_loss, dev_acc = train_dev_step(x_test, y_test, emb_mode=FLAGS["model.emb_mode"], is_train=False) 
+                total_loss = 0
+                nb_corrects = 0
+                nb_instances = 0
+                test_batches =  make_batches(x_test_char_seq, x_test_word, x_test_char, y_test, FLAGS['train.batch_size'], 1, False)
+                for test_batch in test_batches:
+                    x_test_batch, y_test_batch = prep_batches(test_batch)
+                    step, batch_dev_loss, batch_dev_acc = train_dev_step(x_test_batch, y_test_batch, emb_mode=FLAGS["model.emb_mode"], is_train=False)
+                    nb_instances += x_test_batch[0].shape[0]
+                    total_loss += batch_dev_loss * x_test_batch[0].shape[0]
+                    nb_corrects += batch_dev_acc * x_test_batch[0].shape[0]
+                
+                dev_loss = total_loss / nb_instances 
+                dev_acc = nb_corrects / nb_instances 
                 with open(val_log_dir, "a") as f: 
                   f.write("{:d},{:s},{:e},{:e}\n".format(step, datetime.datetime.now().isoformat(), dev_loss, dev_acc))
                 if step % FLAGS["log.checkpoint_every"] == 0 or idx == (nb_batches-1): 
