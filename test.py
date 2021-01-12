@@ -28,9 +28,9 @@ parser.add_argument("--data.delimit_mode", type=int, default=default_delimit_mod
   help="0: delimit by special chars, 1: delimit by special chars + each char as a word (default: {})".format(default_delimit_mode))
 parser.add_argument('--data.subword_dict_dir', type=str, default="runs/10000/subwords_dict.p", metavar="SUBWORD_DICT", 
 	help="directory of the subword dictionary")
-parser.add_argument('--data.word_dict_dir', type=str, default="runs/10000/word_dict.p", metavar="WORD_DICT",
+parser.add_argument('--data.word_dict_dir', type=str, default="runs/10000/words_dict.p", metavar="WORD_DICT",
 	help="directory of the word dictionary")
-parser.add_argument('--data.char_dict_dir', type=str, default="runs/10000/char_dict.p", metavar="	CHAR_DICT",
+parser.add_argument('--data.char_dict_dir', type=str, default="runs/10000/chars_dict.p", metavar="	CHAR_DICT",
 	help="directory of the character dictionary")
 
 # model args 

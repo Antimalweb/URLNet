@@ -73,11 +73,12 @@ orders of test results from top to bottom are the same as their orders in the
 test dataset. If the score is more than 0.5, prediction label is +1 (Malicious).
 Else, the prediction is -1 (Benign).
 
-**Example:** \~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~ label predict score
-
+**Example:**
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+label predict score
 1 1 0.884
-
-\-1 -1 0.359 \~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~\~
+\-1 -1 0.359
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To obtain test metrics such as True Positive, False Positive, True Negative,
 False Negative, and the AUC curves, run the following command:
